@@ -85,5 +85,4 @@ MicrobiomeCalc <- function() {
 }
 
 # Step 7: Run the MicrobiomeCalc Tool
-MicrobiomeCalc()
-calculate_mean_std(microbiome_data)
+MicrobiomeCalc()
