@@ -359,11 +359,7 @@ unique(is.na(Merged_Metadata$sample_ID))
 
 rownames(Merged_Metadata) <- Merged_Metadata$sample_ID
 
-rownames(Merged_Metadata[Merged_Metadata$study_name=="MetaCardis_2022", ]) <- Merged_Metadata[Merged_Metadata$study_name=="MetaCardis_2022", "sample_ID"]
-a <- c(1:1087)
-for(i in a ){
-  
-}
+rownames(Merged_Metadata[Merged_Metadata$study_name=="MetaCardis_2022", ]) <- Merged_Metadata[Merged_Metadata$study_name=="MetaCardis_2022", "sample_ID"]
 
 
 Merged_Metadata<-  Merged_Metadata[, -c(14,15,19)]
