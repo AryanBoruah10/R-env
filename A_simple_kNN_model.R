@@ -1,6 +1,21 @@
+#libraries to create clustering plot of sepal.length and sepal.width of iris dataset
+library(ggplot2)
+library(dplyr)
 
+# Load the Iris dataset
+iris_dataset
 
-#Library to unlock kNN and CrossTable model evaluation  
+# Filter the data for setosa, virginica, and versicolor
+iris_subset <- iris_dataset %>% filter(Species %in% c("setosa", "virginica", "versicolor"))
+
+# Create a scatter plot with different colors for each class
+ggplot(iris_subset, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
+  geom_point(size = 3) +
+  labs(title = "Clustering Plot of Setosa, Virginica, and Versicolor",
+       x = "Sepal Length", y = "Sepal Width") +
+  theme_minimal()
+
+#Library to load kNN and CrossTable model evaluation  
 install.packages("gmodels")
 install.packages("class")
 library(gmodels)
