@@ -14,7 +14,7 @@ ggplot(iris_subset, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
   labs(title = "Clustering Plot of Setosa, Virginica, and Versicolor",
        x = "Sepal Length", y = "Sepal Width") +
   theme_minimal()
-
+######################################################################################
 #Library to load kNN and CrossTable model evaluation  
 install.packages("gmodels")
 install.packages("class")
@@ -50,8 +50,3 @@ p
 #with the known values in the kNN predicted labels
 CrossTable(x = iris_test_labels, y = p, prop.chisq=FALSE)
 
-
-
-
-
-#####################################
