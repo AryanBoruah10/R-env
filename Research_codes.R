@@ -241,5 +241,140 @@ server <- function(input, output, session) {
 }
 shinyApp(ui, server)
 
+# code to create loocv and oob matrix for all the studies in triglyceride in both the healthy and high class. 
+library(randomForest)
+library(dplyr)
+oob_high_tg_levels <- matrix(ncol = 9, nrow = 9)
+colnames(oob_high_tg_levels) <- names(high_tg_list)
+rownames(oob_high_tg_levels) <- names(high_tg_list)
+loocv_high_tg_levels <- matrix(ncol = 9, nrow = 1)
+colnames(loocv_high_tg_levels) <- names(high_tg_list)
+oob_healthy_tg_levels <- matrix(ncol = 9, nrow = 9)
+colnames(oob_healthy_tg_levels) <- names(healthy_tg_list)
+rownames(oob_healthy_tg_levels) <- names(healthy_tg_list)
+loocv_healthy_tg_levels <- matrix(ncol = 9, nrow = 1)
+colnames(loocv_healthy_tg_levels) <- names(healthy_tg_list)
+rfmodels_tg_high <- list()
+rfmodels_tg_healthy <- list()
+rfmodel_same_high <- list()
+rfmodel_diff_high <- list()
+rfmodel_same_healthy <- list()
+rfmodel_diff_healthy <- list()
+
+
+loocv_high_subsampling_corrmat <- matrix(nrow = 25, ncol = 9)
+colnames(loocv_high_subsampling_corrmat) <- names(high_tg_list)
+loocv_healthy_subsampling_corrmat <- matrix(nrow = 25, ncol = 9)
+colnames(loocv_healthy_subsampling_corrmat) <- names(healthy_tg_list)
+
+healthy_studiesnames <- names(healthy_tg_list)
+high_studynames <- names(high_tg_list)
+num_subsampling <- 25
+
+for(i in high_studynames){
+  print(i)
+  for(j in 1:num_subsampling){
+    print(paste("Subsampling: ", j))
+    study_leave_out <- i
+    leave_out_data <- do.call(rbind, high_tg_list[-which(names(high_tg_list) == study_leave_out)])
+    rfmodel <- randomForest(Triglyceride ~ ., data = leave_out_data, mtry = 13, ntree = 1000)
+    rfmodels_tg_high[[i]][[j]] <- rfmodel
+    print("rfmodel saved")
+    predictions  <- predict( rfmodels_tg_high[[i]][[j]], newdata = high_tg_list[[i]])
+    corr_value <- cor(predictions, high_tg_list[[i]][[3]])
+    print(corr_value)
+    loocv_high_subsampling_corrmat[j, i] <- corr_value
+    print("Corr value stored")
+    
+    if(i == "YuJ_2015" & j == 25){
+      for(k in names(high_tg_list)){
+        for (l in names(high_tg_list)){
+          if(k==l){
+            current_data <- high_tg_list[[k]]
+            rf_model <- randomForest(Triglyceride ~ ., data = current_data, ntree = 1000, mtry = 13)
+            rfmodel_same_high[[i]] <- rf_model
+            print("rfmodel stored")
+            
+            corr_value <- cor(rfmodel_same[[k]]$y, rfmodel_same[[k]]$predicted)
+            print(paste("CorrValue:", k,"&", l,  corr_value, sep = "_"))
+            oob_high_tg_levels[k,l] <- corr_value
+            print("CorrValue added in the matrix")
+          }else if(k != l){
+            
+            
+            train_data <- high_tg_list[[k]]
+            test_data <- high_tg_list[[l]]
+            
+            rfmodel <- randomForest(Triglyceride ~ ., data = train_data, ntree = 1000, mtry = 13)
+            rfmodel_diff_high[[paste(k, "&", l, sep = "_")]] <- rfmodel
+            print("rfmodel")
+            predictions <- predict(rfmodel_diff[[paste(k, "&", l, sep = "_")]], newdata = test_data)
+            corr_value <- cor(predictions, test_data$Triglyceride)
+            print(paste("CorrValue:", k, "&", l, corr_value))
+            oob_high_tg_levels[k,l] <- corr_value
+            print("CorrValue added in the matrix")
+          }
+          
+          
+        }
+        if(i =="YuJ_2015" & j == "YuJ_2015"){
+          file_path <- "/storage/shivangi/aryan_test_code/oob_output/oob_healthy_env.RData"
+          save.image(file = file_path)
+          print("file saved")
+          
+        }
+        
+      }
+      
+    }
+  }
+  for(m in healthy_studiesnames){
+    print(m)
+    for(n in 1:num_subsampling){
+      print(paste("Subsampling: ", n))
+      study_leave_out <- m
+      leave_out_data <- do.call(rbind, healthy_tg_list[-which(names(healthy_tg_list) == study_leave_out)])
+      rfmodel <- randomForest(Triglyceride ~ ., data = leave_out_data, mtry = 13, ntree = 1000)
+      rfmodels_tg_healthy[[m]][[n]] <- rfmodel
+      print("rfmodel saved")
+      predictions  <- predict(rfmodels_tg_healthy[[m]][[n]], newdata = healthy_tg_list[[m]])
+      corr_value <- cor(predictions, healthy_tg_list[[m]][[3]])
+      print(corr_value)
+      loocv_healthy_subsampling_corrmat[n, m] <- corr_value
+      print("Corr value stored")
+      
+      if(m =="YuJ_2015" & n == 25){
+        for(o in names(healthy_tg_list)){
+          for (p in names(healthy_tg_list)) {
+            if(o==p){
+              current_data <- healthy_tg_list[[o]]
+              rf_model <- randomForest(Triglyceride ~ ., data = current_data, ntree = 1000, mtry = 13)
+              rfmodel_same_healthy[[o]] <- rf_model
+              print("rfmodel stored")
+              
+              corr_value <- cor(rfmodel_same[[k]]$y, rfmodel_same[[k]]$predicted)
+              print(paste("CorrValue:", o,"&", p,  corr_value, sep = "_"))
+              oob_healthy_tg_levels[o,p] <- corr_value
+              print("CorrValue added in the matrix")
+            }else if(o != p){
+              train_data <- healthy_tg_list[[o]]
+              test_data <- healthy_tg_list[[p]]
+              
+              rfmodel <- randomForest(Triglyceride ~ ., data = train_data, ntree = 1000, mtry = 13)
+              rfmodel_diff_healthy[[paste(o, "&", p, sep = "_")]] <- rfmodel
+              print("rfmodel")
+              predictions <- predict(rfmodel_diff[[paste(o, "&", p, sep = "_")]], newdata = test_data)
+              corr_value <- cor(predictions, test_data$Triglyceride)
+              print(paste("CorrValue:", o, "&", p, corr_value))
+              oob_healthy_tg_levels[o,p] <- corr_value
+              print("CorrValue added in the matrix")
+            }
+            
+          }
+        }
+      }
+    }
+  }
+}
 
 
