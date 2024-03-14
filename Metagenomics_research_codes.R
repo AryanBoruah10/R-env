@@ -378,3 +378,18 @@ for(i in high_studynames){
 }
 
 
+
+
+#code to create summary table 
+
+for (i in rownames(summary_table)) {
+  for (j in colnames(summary_table)) {
+    if (any(is.na(final_table[final_table$study_name == i, j]))) {
+      summary_table[i, j] <- 0
+    } else {
+      summary_table[i, j] <- 1
+    }
+  }
+}
+
+
