@@ -1,4 +1,4 @@
-
+#calculator 
 
 
 user_input1 <- as.integer(readline(prompt = "Enter a number: "))
