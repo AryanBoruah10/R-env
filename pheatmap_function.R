@@ -1,3 +1,5 @@
+#This is not my code. Copied it from R studio 
+
 function (mat, color = colorRampPalette(rev(brewer.pal(n = 7, 
   name = "RdYlBu")))(100), kmeans_k = NA, breaks = NA, border_color = "grey60", 
   cellwidth = NA, cellheight = NA, scale = "none", cluster_rows = TRUE, 
