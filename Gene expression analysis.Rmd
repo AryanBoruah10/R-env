@@ -1,0 +1,178 @@
+---
+title: "Gene expression analysis"
+author: "Aryan Boruah"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(SingleR)
+library(dplyr)
+```
+
+
+```{r}
+#Load the pbmc dataset
+pbmc.data <- Read10X(data.dir = "C:/Users/aryan/Desktop/pbmc8k")
+ 
+#Initialize the Seurat object with the raw (non-normalized data).
+pbmc.seurat.obj <- CreateSeuratObject(counts = pbmc.data, project = "pbmc8k", min.cells = 3, min.features = 200)
+str(pbmc.seurat.obj)
+pbmc.seurat.obj
+
+count_matrix <- GetAssayData(pbmc.seurat.obj, slot = "counts")
+View(count_matrix)
+counts <- as.matrix(count_matrix)
+```
+
+
+```{r}
+#QC
+View(pbmc.seurat.obj@meta.data)
+# % Mitochondrial reads
+pbmc.seurat.obj[["percent.mt"]] <- PercentageFeatureSet(pbmc.seurat.obj, pattern = "^MT-")
+View(pbmc.seurat.obj@meta.data)
+
+VlnPlot(pbmc.seurat.obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+FeatureScatter(pbmc.seurat.obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  geom_smooth(method = 'lm')
+
+
+plot1 <- FeatureScatter(pbmc.seurat.obj, feature1 = "nCount_RNA", feature2 = "percent.mt") + no
+plot2 <- FeatureScatter(pbmc.seurat.obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+
+
+#Filtering nFeatures and mitochondrial genes 
+pbmc.seurat.obj <- subset(pbmc.seurat.obj, subset = nFeature_RNA > 200 & nFeature_RNA < 3000 & percent.mt < 5)
+
+pbmc.seurat.obj <- NormalizeData(pbmc.seurat.obj, scale.factor = 10000)
+str(pbmc.seurat.obj)
+
+
+#Identify highly variable features 
+pbmc.seurat.obj <- FindVariableFeatures(pbmc.seurat.obj, selection.method = "vst", nfeatures = 2000)
+
+#Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc.seurat.obj), 10)
+top10
+
+#plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc.seurat.obj)
+plot1
+LabelPoints(plot = plot1, points = top10, repel = TRUE, xnudge = 0, ynudge = 0)
+
+
+#scaling
+all.genes <- rownames(pbmc.seurat.obj)
+pbmc.seurat.obj <- ScaleData(pbmc.seurat.obj, features = all.genes)
+
+str(pbmc.seurat.obj)
+
+```
+
+
+
+```{r}
+# 6. Perform Linear dimensionality reduction --------------
+pbmc.seurat.obj <- RunPCA(pbmc.seurat.obj, features = VariableFeatures(object = pbmc.seurat.obj))
+
+# visualize PCA results
+print(pbmc.seurat.obj[["pca"]], dims = 1:5, nfeatures = 5)
+
+VizDimLoadings(pbmc.seurat.obj, dims = 1:2, reduction = "pca")
+DimHeatmap(pbmc.seurat.obj, dims = 1, cells = 500, balanced = TRUE)
+
+
+# determine dimensionality of the data
+ElbowPlot(pbmc.seurat.obj)
+
+DimPlot(pbmc.seurat.obj, reduction = "pca", label = T)
+
+# 7. Clustering ------------
+pbmc.seurat.obj <- FindNeighbors(pbmc.seurat.obj, dims = 1:15)
+
+# understanding resolution
+pbmc.seurat.obj <- FindClusters(pbmc.seurat.obj, resolution = c(0.1,0.2, 0.3, 0.5, 0.7, 1, 1.2))
+View(pbmc.seurat.obj@meta.data)
+table(pbmc.seurat.obj$seurat_clusters)
+
+DimPlot(pbmc.seurat.obj, group.by = "RNA_snn_res.0.2", label = TRUE, reduction = "pca")
+
+pbmc.seurat.obj <- RunUMAP(pbmc.seurat.obj, dims = 1:15)
+
+DimPlot(pbmc.seurat.obj, reduction = "umap", label = T, group.by = "RNA_snn_res.0.2")
+
+```
+
+
+
+
+```{r}
+#cell type annotation using HumanPrimaryCellAtlasData()
+ref <- celldex::HumanPrimaryCellAtlasData()
+View(as.data.frame(colData(ref)))
+
+pbmc_counts <- GetAssayData(pbmc.seurat.obj, slot = 'counts')
+
+pred <- SingleR(test = pbmc_counts,
+                ref = ref,
+                labels = ref$label.main)
+
+pred
+
+pbmc.seurat.obj$singleR.labels <- pred$labels[match(rownames(pbmc.seurat.obj@meta.data), rownames(pred))]
+DimPlot(pbmc.seurat.obj, reduction = 'umap', group.by = 'singleR.labels', label = T, repel = T)
+
+View(pbmc.seurat.obj@meta.data)
+
+pdf("umap_plot_new.pdf", width = 10, height = 7)
+DimPlot(pbmc.seurat.obj, reduction = 'umap', group.by = 'singleR.labels', label = TRUE, repel = TRUE)
+dev.off()
+```
+
+
+Finding all marker of each cluster 
+```{r}
+pbmc.markers <- FindAllMarkers(pbmc.seurat.obj, only.pos = TRUE)
+VlnPlot(pbmc.seurat.obj, features = c("TRAC", "CSTA"))
+FeaturePlot(pbmc.seurat.obj, features = c("TRMO", "RP11-1143G9.4", "TCL1A", "CTSW", "CD8A", "GADD45GIP1", "RPS27A", "CD40LG","KCNK17"))
+```
+
+Identify top 5 genes of each cluster that are highly expressed.
+
+```{r}
+library(Seurat)
+library(dplyr)
+
+#Identify the top 5 highly expressed genes per cluster
+top5_genes <- pbmc.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = avg_log2FC) %>%
+  ungroup()
+
+FeaturePlot(pbmc.seurat.obj, features = unique(top5_genes$gene), reduction = "umap", ncol = 3)
+top5_genes
+
+```
+
+
+Counting cell type 
+```{r}
+# Calculate the number of cells in each cell type
+cell_type_counts <- table(pbmc.seurat.obj@meta.data$singleR.labels)
+
+# Calculate the percentage of each cell type
+cell_type_percentages <- prop.table(cell_type_counts) * 100
+
+# Print the results
+cell_type_counts
+cell_type_percentages
+
+pbmc.seurat.obj@meta.data$singleR.labels
+
+```
+
+
